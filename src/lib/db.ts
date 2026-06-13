@@ -304,9 +304,7 @@ export const dbService = {
       credentialsDelivered.push(''); // placeholder indicating manual delivery required
     }
 
-    const orderId = supabase ? undefined : Math.random().toString(36).substring(2, 11);
     const newOrderObj: Omit<Order, 'id'> & { id?: string } = {
-      id: orderId,
       user_email: userEmail,
       game_id: gameId,
       quantity,
@@ -347,11 +345,14 @@ export const dbService = {
     }
 
     // LocalStorage fallback execution
+    const localOrderId = Math.random().toString(36).substring(2, 11);
+    newOrderObj.id = localOrderId;
+
     initLocalStorage();
     const orders = await this.getOrders();
     const createdOrder: Order = {
       ...newOrderObj,
-      id: orderId!,
+      id: localOrderId,
     };
     orders.unshift(createdOrder);
     localStorage.setItem(LOCAL_KEYS.ORDERS, JSON.stringify(orders));
