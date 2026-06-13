@@ -14,7 +14,7 @@ const spaceGrotesk = Space_Grotesk({
 
 export const metadata: Metadata = {
   title: "Ready Rank - Premium Ranked Ready Gaming Accounts",
-  description: "Buy ready-to-play ranked gaming accounts for Marvel Rivals, Valorant, Rainbow Six Siege, Overwatch, and League of Legends. Automated instant delivery.",
+  description: "Order ranked gaming accounts for Marvel Rivals, Valorant, Rainbow Six Siege, Overwatch, and League of Legends with ticket-based admin fulfillment.",
   keywords: ["ranked accounts", "gaming accounts", "marvel rivals", "valorant", "rainbow six siege", "overwatch", "league of legends", "egp accounts"],
   authors: [{ name: "Ready Rank" }],
 };

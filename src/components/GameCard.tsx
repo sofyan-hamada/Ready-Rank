@@ -1,25 +1,19 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { GamePrice } from '@/lib/db';
-import { Plus, Minus, ShoppingCart, ShieldAlert } from 'lucide-react';
+import { Plus, Minus, ShoppingCart } from 'lucide-react';
 
 interface GameCardProps {
   game: GamePrice;
-  stockCount: number;
   onCheckout: (gameId: string, quantity: number, totalPrice: number) => void;
 }
 
-export default function GameCard({ game, stockCount, onCheckout }: GameCardProps) {
+export default function GameCard({ game, onCheckout }: GameCardProps) {
   const [quantity, setQuantity] = useState(1);
   const [imgError, setImgError] = useState(false);
 
-  // Reset quantity if game or stock changes
-  useEffect(() => {
-    setQuantity(1);
-  }, [game, stockCount]);
-
-  const handleIncrement = () => setQuantity(prev => Math.min(prev + 1, Math.min(stockCount, 10)));
+  const handleIncrement = () => setQuantity(prev => Math.min(prev + 1, 10));
   const handleDecrement = () => setQuantity(prev => Math.max(prev - 1, 1));
 
   const totalPrice = quantity * game.price_egp;
@@ -141,66 +135,49 @@ export default function GameCard({ game, stockCount, onCheckout }: GameCardProps
             {/* Quantity Selector */}
             <div className="flex flex-col items-end">
               <span className="text-[10px] uppercase tracking-widest font-bold text-gray-500 mb-1">Quantity</span>
-              {stockCount === 0 ? (
-                <div className="flex items-center bg-gray-950 border border-gray-900 rounded-lg py-1 px-3">
-                  <span className="text-xs font-bold text-rose-500">Out of Stock</span>
-                </div>
-              ) : (
-                <div className="flex items-center bg-gray-950 border border-gray-800 rounded-lg p-1">
-                  <button
-                    onClick={handleDecrement}
-                    disabled={quantity <= 1}
-                    className="p-1 rounded-md text-gray-400 hover:text-white hover:bg-gray-800 disabled:opacity-30 disabled:pointer-events-none transition-all"
-                    id={`btn-qty-dec-${game.id}`}
-                    aria-label="Decrease quantity"
-                  >
-                    <Minus className="w-3.5 h-3.5" />
-                  </button>
-                  <span className="w-8 text-center text-sm font-bold text-white" id={`qty-val-${game.id}`}>
-                    {quantity}
-                  </span>
-                  <button
-                    onClick={handleIncrement}
-                    disabled={quantity >= 10 || quantity >= stockCount}
-                    className="p-1 rounded-md text-gray-400 hover:text-white hover:bg-gray-800 disabled:opacity-30 disabled:pointer-events-none transition-all"
-                    id={`btn-qty-inc-${game.id}`}
-                    aria-label="Increase quantity"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )}
+              <div className="flex items-center bg-gray-950 border border-gray-800 rounded-lg p-1">
+                <button
+                  onClick={handleDecrement}
+                  disabled={quantity <= 1}
+                  className="p-1 rounded-md text-gray-400 hover:text-white hover:bg-gray-800 disabled:opacity-30 disabled:pointer-events-none transition-all"
+                  id={`btn-qty-dec-${game.id}`}
+                  aria-label="Decrease quantity"
+                >
+                  <Minus className="w-3.5 h-3.5" />
+                </button>
+                <span className="w-8 text-center text-sm font-bold text-white" id={`qty-val-${game.id}`}>
+                  {quantity}
+                </span>
+                <button
+                  onClick={handleIncrement}
+                  disabled={quantity >= 10}
+                  className="p-1 rounded-md text-gray-400 hover:text-white hover:bg-gray-800 disabled:opacity-30 disabled:pointer-events-none transition-all"
+                  id={`btn-qty-inc-${game.id}`}
+                  aria-label="Increase quantity"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Checkout Button & Total */}
-          {stockCount === 0 ? (
-            <button
-              disabled
-              className="w-full relative flex items-center justify-center gap-1.5 px-4 py-3 bg-red-950/20 border border-red-900/30 text-rose-500/70 rounded-xl font-bold text-sm tracking-wide shadow-md cursor-not-allowed"
-              id={`btn-checkout-${game.id}`}
-            >
-              <ShieldAlert className="w-4 h-4" />
-              Sold Out
-            </button>
-          ) : (
-            <button
-              onClick={() => onCheckout(game.id, quantity, totalPrice)}
-              className={`w-full relative flex items-center justify-between px-4 py-3 bg-gradient-to-r ${accentColorClass} rounded-xl font-bold text-white text-sm tracking-wide shadow-lg group-hover:brightness-110 active:scale-[0.98] transition-all duration-200 overflow-hidden`}
-              id={`btn-checkout-${game.id}`}
-            >
-              {/* Gloss shine effect */}
-              <div className="absolute inset-0 w-1/2 h-full bg-white/10 skew-x-[-25deg] -translate-x-full group-hover:animate-[shine_0.75s_ease-out-in] pointer-events-none"></div>
-              
-              <span className="flex items-center gap-1.5 font-bold">
-                <ShoppingCart className="w-4 h-4" />
-                Checkout
-              </span>
-              <span className="font-display font-extrabold text-base bg-black/20 px-2.5 py-0.5 rounded-lg border border-white/10">
-                {totalPrice.toLocaleString()} EGP
-              </span>
-            </button>
-          )}
+          <button
+            onClick={() => onCheckout(game.id, quantity, totalPrice)}
+            className={`w-full relative flex items-center justify-between px-4 py-3 bg-gradient-to-r ${accentColorClass} rounded-xl font-bold text-white text-sm tracking-wide shadow-lg group-hover:brightness-110 active:scale-[0.98] transition-all duration-200 overflow-hidden`}
+            id={`btn-checkout-${game.id}`}
+          >
+            {/* Gloss shine effect */}
+            <div className="absolute inset-0 w-1/2 h-full bg-white/10 skew-x-[-25deg] -translate-x-full group-hover:animate-[shine_0.75s_ease-out-in] pointer-events-none"></div>
+            
+            <span className="flex items-center gap-1.5 font-bold">
+              <ShoppingCart className="w-4 h-4" />
+              Open Ticket
+            </span>
+            <span className="font-display font-extrabold text-base bg-black/20 px-2.5 py-0.5 rounded-lg border border-white/10">
+              {totalPrice.toLocaleString()} EGP
+            </span>
+          </button>
         </div>
 
       </div>

@@ -5,14 +5,13 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import GameCard from '@/components/GameCard';
 import ReviewSection from '@/components/ReviewSection';
-import { dbService, GamePrice, Order, InventoryItem } from '@/lib/db';
+import { dbService, GamePrice, Order } from '@/lib/db';
 import { authService, UserSession } from '@/lib/auth';
 import { ShieldCheck, Zap, Award, Sparkles, X, ShoppingBag } from 'lucide-react';
 import Link from 'next/link';
 
 export default function Home() {
   const [games, setGames] = useState<GamePrice[]>([]);
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
   
@@ -48,14 +47,10 @@ export default function Home() {
   const loadGames = async () => {
     setLoading(true);
     try {
-      const [pricesData, invData] = await Promise.all([
-        dbService.getPrices(),
-        dbService.getInventory(),
-      ]);
+      const pricesData = await dbService.getPrices();
       setGames(pricesData);
-      setInventory(invData);
     } catch (err) {
-      console.error('Error loading games/inventory:', err);
+      console.error('Error loading games:', err);
     } finally {
       setLoading(false);
     }
@@ -103,7 +98,6 @@ export default function Home() {
       const order = await dbService.placeOrder(emailToUse, selectedGame.id, selectedQty, selectedTotal);
       if (order) {
         setOrderSuccess(order);
-        // Refresh games list in case inventory changed (though not strictly necessary for prices, good practice)
         loadGames();
       } else {
         setCheckoutError('Failed to place order. Please try again.');
@@ -124,10 +118,6 @@ export default function Home() {
     await executeOrder(checkoutEmail.trim());
   };
 
-  const getStockCount = (gameId: string) => {
-    return inventory.filter(item => item.game_id === gameId && !item.is_sold).length;
-  };
-
   return (
     <>
       <Navbar />
@@ -141,7 +131,7 @@ export default function Home() {
             {/* Header Badge */}
             <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-violet-950/50 border border-violet-800/40 text-violet-300 text-xs font-semibold tracking-wider uppercase mb-6 animate-pulse">
               <Sparkles className="w-3.5 h-3.5" />
-              Instant Automated Account Delivery
+              Ticket-Based Manual Fulfillment
             </div>
 
             <h1 className="font-display font-extrabold text-4xl sm:text-6xl md:text-7xl text-white tracking-tight leading-tight">
@@ -152,7 +142,7 @@ export default function Home() {
             </h1>
 
             <p className="max-w-2xl mx-auto text-sm sm:text-base text-gray-400 mt-6 leading-relaxed">
-              We sell verified, ready-to-play ranked accounts. No extra setups, no diamonds, no configurations. Simply purchase, log in, and play immediately.
+              Choose your game, place an order, and a support ticket opens automatically so the admin can prepare and deliver your account manually.
             </p>
 
             <div className="mt-8 flex flex-wrap justify-center gap-4">
@@ -179,8 +169,8 @@ export default function Home() {
                   <Zap className="w-5 h-5" />
                 </div>
                 <div className="text-left">
-                  <p className="text-lg font-extrabold text-white leading-none">Instant</p>
-                  <p className="text-xs text-gray-500 mt-0.5">Automated credential delivery</p>
+                  <p className="text-lg font-extrabold text-white leading-none">Ticket First</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Every order opens a support thread</p>
                 </div>
               </div>
 
@@ -190,7 +180,7 @@ export default function Home() {
                 </div>
                 <div className="text-left">
                   <p className="text-lg font-extrabold text-white leading-none">Safe & Secure</p>
-                  <p className="text-xs text-gray-500 mt-0.5">Fresh accounts, lifetime warranty</p>
+                  <p className="text-xs text-gray-500 mt-0.5">No public credential exposure</p>
                 </div>
               </div>
 
@@ -231,7 +221,6 @@ export default function Home() {
                 <GameCard 
                   key={game.id} 
                   game={game} 
-                  stockCount={getStockCount(game.id)}
                   onCheckout={handleCheckoutClick} 
                 />
               ))}
@@ -293,7 +282,7 @@ export default function Home() {
                   {!currentUser && (
                     <div>
                       <p className="text-xs text-gray-400 mb-2">
-                        ✨ To deliver your credentials and view your orders, please enter your email. We will automatically create your account.
+                        Enter your email to create the order and open a support ticket with the admin.
                       </p>
                       <label className="block text-[10px] uppercase font-bold tracking-widest text-gray-400 mb-1.5">
                         Email Address
@@ -341,15 +330,9 @@ export default function Home() {
                   Your order for <strong className="text-white">{selectedQty} × {selectedGame.name}</strong> accounts has been registered.
                 </p>
 
-                {orderSuccess.credentials_delivered.some(cred => cred !== '') ? (
-                  <div className="bg-emerald-950/20 border border-emerald-900/30 text-emerald-300 text-xs p-3 rounded-lg text-left">
-                    🎉 Accounts are allocated and ready! View the credentials instantly on your dashboard.
-                  </div>
-                ) : (
-                  <div className="bg-amber-950/20 border border-amber-900/30 text-amber-300 text-xs p-3 rounded-lg text-left">
-                    ℹ️ Manual delivery pending. The admin has been notified and will deliver your credentials shortly.
-                  </div>
-                )}
+                <div className="bg-amber-950/20 border border-amber-900/30 text-amber-300 text-xs p-3 rounded-lg text-left">
+                  Your ticket is open. The admin has been notified and will continue delivery with you in the order ticket.
+                </div>
 
                 <div className="flex flex-col gap-2 pt-2">
                   <Link

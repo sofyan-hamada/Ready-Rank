@@ -5,7 +5,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { dbService, Order, GAMES_INITIAL } from '@/lib/db';
 import { authService, UserSession } from '@/lib/auth';
-import { ShoppingBag, Key, Clipboard, Check, RefreshCw, AlertTriangle, Headphones } from 'lucide-react';
+import { ShoppingBag, RefreshCw, AlertTriangle, Headphones, MessageCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import TicketPanel from '@/components/TicketPanel';
 
@@ -14,7 +14,6 @@ export default function OrdersPage() {
   const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Authentication inputs
   const [email, setEmail] = useState('');
@@ -86,12 +85,6 @@ export default function OrdersPage() {
     return GAMES_INITIAL.find(g => g.id === id)?.name || id;
   };
 
-  const handleCopy = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
-  };
-
   return (
     <>
       <Navbar />
@@ -105,7 +98,7 @@ export default function OrdersPage() {
               MY <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-violet-400 text-glow-cyan">ORDERS</span>
             </h1>
             <p className="text-xs text-gray-500 mt-1 uppercase tracking-widest font-semibold">
-              View your purchased ranked accounts and login credentials
+              View your orders and continue delivery through support tickets
             </p>
           </div>
 
@@ -130,7 +123,7 @@ export default function OrdersPage() {
               Access Your Purchased Accounts
             </h2>
             <p className="text-xs text-gray-400 text-center mb-6">
-              Enter the email address you used during checkout to view your account details instantly.
+              Enter the email address you used during checkout to view your order tickets.
             </p>
 
             <form onSubmit={handleLoginSubmit} className="space-y-4">
@@ -201,9 +194,6 @@ export default function OrdersPage() {
             ) : (
               <div className="space-y-6">
                 {orders.map((order) => {
-                  const hasManualDelivery = order.credentials_delivered.some(cred => cred === '');
-                  const deliveredCount = order.credentials_delivered.filter(cred => cred !== '').length;
-
                   return (
                     <div 
                       key={order.id} 
@@ -248,78 +238,32 @@ export default function OrdersPage() {
                             </span>
                           </h3>
 
-                          {hasManualDelivery && (
-                            <span className="inline-flex items-center gap-1 text-[10px] uppercase font-bold tracking-wider text-amber-400 bg-amber-950/20 border border-amber-900/50 px-2 py-0.5 rounded">
-                              <AlertTriangle className="w-3.5 h-3.5" />
-                              Manual Delivery Pending
-                            </span>
-                          )}
+                          <span className="inline-flex items-center gap-1 text-[10px] uppercase font-bold tracking-wider text-amber-400 bg-amber-950/20 border border-amber-900/50 px-2 py-0.5 rounded">
+                            <AlertTriangle className="w-3.5 h-3.5" />
+                            Ticket Opened
+                          </span>
                         </div>
 
-                        {/* Delivered Credentials */}
+                        {/* Ticket-Based Fulfillment */}
                         <div className="space-y-3">
                           <span className="text-[10px] uppercase tracking-widest font-bold text-gray-500 flex items-center gap-1.5">
-                            <Key className="w-3.5 h-3.5 text-violet-400" />
-                            Allocated Account Credentials
+                            <MessageCircle className="w-3.5 h-3.5 text-violet-400" />
+                            Order Ticket
                           </span>
 
-                          <div className="grid grid-cols-1 gap-3">
-                            {order.credentials_delivered.map((credentials, idx) => {
-                              const uniqueKey = `${order.id}-cred-${idx}`;
-                              
-                              if (!credentials) {
-                                return (
-                                  <div 
-                                    key={uniqueKey} 
-                                    className="bg-amber-950/10 border border-amber-900/30 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-amber-200"
-                                    id={`pending-delivery-msg-${idx}`}
-                                  >
-                                    <div className="text-xs">
-                                      <p className="font-bold flex items-center gap-1.5">
-                                        <AlertTriangle className="w-4 h-4 text-amber-500" />
-                                        Manual Delivery Required for Account #{idx + 1}
-                                      </p>
-                                      <p className="text-amber-300/80 mt-0.5">
-                                        We are preparing these credentials. We will contact you at <strong>{order.user_email}</strong> with details shortly.
-                                      </p>
-                                    </div>
-                                    <span className="text-[10px] uppercase font-extrabold tracking-widest bg-amber-950 border border-amber-800 text-amber-400 px-2 py-0.5 rounded">
-                                      Pending
-                                    </span>
-                                  </div>
-                                );
-                              }
-
-                              return (
-                                <div 
-                                  key={uniqueKey} 
-                                  className="bg-gray-950 border border-gray-900 rounded-xl p-4 flex justify-between items-center gap-4 hover:border-gray-800/80 transition-colors"
-                                  id={`credentials-box-${idx}`}
-                                >
-                                  <div className="flex-grow space-y-1">
-                                    <div className="text-[10px] uppercase font-bold text-violet-400">
-                                      Account #{idx + 1}
-                                    </div>
-                                    <code className="text-xs text-gray-200 font-mono block select-all bg-gray-900/50 p-2 rounded border border-gray-900/80 overflow-x-auto whitespace-pre-wrap max-w-full" id={`credentials-text-${idx}`}>
-                                      {credentials}
-                                    </code>
-                                  </div>
-                                  
-                                  <button
-                                    onClick={() => handleCopy(credentials, uniqueKey)}
-                                    className="p-2.5 rounded-lg bg-gray-900 border border-gray-800 text-gray-400 hover:text-white hover:bg-gray-800 transition-all shadow-md shrink-0 self-end"
-                                    title="Copy Credentials"
-                                    id={`btn-copy-${uniqueKey}`}
-                                  >
-                                    {copiedId === uniqueKey ? (
-                                      <Check className="w-4 h-4 text-emerald-400" />
-                                    ) : (
-                                      <Clipboard className="w-4 h-4" />
-                                    )}
-                                  </button>
-                                </div>
-                              );
-                            })}
+                          <div className="bg-amber-950/10 border border-amber-900/30 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 text-amber-200">
+                            <div className="text-xs">
+                              <p className="font-bold flex items-center gap-1.5">
+                                <AlertTriangle className="w-4 h-4 text-amber-500" />
+                                Delivery is handled through your support ticket
+                              </p>
+                              <p className="text-amber-300/80 mt-0.5">
+                                The admin will continue with you at <strong>{order.user_email}</strong> in the ticket below. No account credentials are shown on this page.
+                              </p>
+                            </div>
+                            <span className="text-[10px] uppercase font-extrabold tracking-widest bg-amber-950 border border-amber-800 text-amber-400 px-2 py-0.5 rounded">
+                              Pending
+                            </span>
                           </div>
                         </div>
 

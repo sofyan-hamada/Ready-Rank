@@ -1,22 +1,29 @@
 -- supabase_schema.sql
--- Run this schema in your Supabase SQL Editor to set up the database.
+-- Run this schema in your Supabase SQL Editor to set up or update the database.
 
 -- 1. Create Game Prices table
 CREATE TABLE IF NOT EXISTS game_prices (
     id TEXT PRIMARY KEY, -- 'marvel-rivals', 'valorant', 'siege', 'overwatch', 'league'
     name TEXT NOT NULL,
     price_egp NUMERIC NOT NULL DEFAULT 1500,
-    description TEXT DEFAULT 'Ready Rank account — fully ready to play. No diamonds, no extras, nothing else required.',
+    description TEXT DEFAULT 'Ready Rank order - a support ticket opens after checkout so the admin can prepare and deliver the account manually.',
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Existing Supabase projects may already have game_prices without newer columns.
+ALTER TABLE game_prices
+ADD COLUMN IF NOT EXISTS description TEXT DEFAULT 'Ready Rank order - a support ticket opens after checkout so the admin can prepare and deliver the account manually.';
+
+ALTER TABLE game_prices
+ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+
 -- Seed initial game data
 INSERT INTO game_prices (id, name, price_egp, description) VALUES
-('marvel-rivals', 'Marvel Rivals', 1500, 'Ready Rank account — fully ready to play. No diamonds, no extras, nothing else required.'),
-('valorant', 'Valorant', 1500, 'Ready Rank account — fully ready to play. No diamonds, no extras, nothing else required.'),
-('siege', 'Rainbow Six Siege', 1500, 'Ready Rank account — fully ready to play. No diamonds, no extras, nothing else required.'),
-('overwatch', 'Overwatch', 1500, 'Ready Rank account — fully ready to play. No diamonds, no extras, nothing else required.'),
-('league', 'League of Legends', 1500, 'Ready Rank account — fully ready to play. No diamonds, no extras, nothing else required.')
+('marvel-rivals', 'Marvel Rivals', 1500, 'Ready Rank order - a support ticket opens after checkout so the admin can prepare and deliver the account manually.'),
+('valorant', 'Valorant', 1500, 'Ready Rank order - a support ticket opens after checkout so the admin can prepare and deliver the account manually.'),
+('siege', 'Rainbow Six Siege', 1500, 'Ready Rank order - a support ticket opens after checkout so the admin can prepare and deliver the account manually.'),
+('overwatch', 'Overwatch', 1500, 'Ready Rank order - a support ticket opens after checkout so the admin can prepare and deliver the account manually.'),
+('league', 'League of Legends', 1500, 'Ready Rank order - a support ticket opens after checkout so the admin can prepare and deliver the account manually.')
 ON CONFLICT (id) DO NOTHING;
 
 -- 2. Create Orders table
@@ -26,9 +33,12 @@ CREATE TABLE IF NOT EXISTS orders (
     game_id TEXT REFERENCES game_prices(id) ON DELETE CASCADE,
     quantity INTEGER NOT NULL CHECK (quantity > 0),
     total_price NUMERIC NOT NULL,
-    credentials_delivered TEXT[] DEFAULT '{}', -- Store credentials delivered to buyer
+    credentials_delivered TEXT[] DEFAULT '{}', -- Legacy field; kept empty because delivery is handled through support tickets
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+ALTER TABLE orders
+ADD COLUMN IF NOT EXISTS credentials_delivered TEXT[] DEFAULT '{}';
 
 -- 3. Create Accounts Inventory table
 CREATE TABLE IF NOT EXISTS accounts_inventory (
@@ -51,31 +61,6 @@ CREATE TABLE IF NOT EXISTS reviews (
     approved BOOLEAN NOT NULL DEFAULT TRUE
 );
 
--- Enable Row Level Security (RLS) on tables
-ALTER TABLE game_prices ENABLE ROW LEVEL SECURITY;
-ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
-ALTER TABLE accounts_inventory ENABLE ROW LEVEL SECURITY;
-ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
-
--- Setup RLS Policies
-
--- game_prices: anyone can read, only admin (with service key or authenticated admin) can update.
--- For simplification in client access: we'll allow public reads and permit updates.
-CREATE POLICY "Allow public read games" ON game_prices FOR SELECT USING (true);
-CREATE POLICY "Allow admin write games" ON game_prices FOR ALL USING (true); -- Custom bypass or secure via service role
-
--- orders: public read by email, public insert.
-CREATE POLICY "Allow public insert orders" ON orders FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow select own orders" ON orders FOR SELECT USING (true);
-
--- accounts_inventory: only admin can manage, users cannot directly read unless assigned to them.
-CREATE POLICY "Allow admin manage inventory" ON accounts_inventory FOR ALL USING (true);
-
--- reviews: anyone can read and write.
-CREATE POLICY "Allow public read reviews" ON reviews FOR SELECT USING (true);
-CREATE POLICY "Allow public insert reviews" ON reviews FOR INSERT WITH CHECK (true);
-CREATE POLICY "Allow admin manage reviews" ON reviews FOR ALL USING (true);
-
 -- 5. Create Support Tickets table
 CREATE TABLE IF NOT EXISTS support_tickets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -95,9 +80,44 @@ CREATE TABLE IF NOT EXISTS ticket_messages (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Enable RLS on ticket tables
+-- Enable Row Level Security (RLS) on tables
+ALTER TABLE game_prices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE accounts_inventory ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE support_tickets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ticket_messages ENABLE ROW LEVEL SECURITY;
+
+-- Setup RLS Policies
+DROP POLICY IF EXISTS "Allow public read games" ON game_prices;
+DROP POLICY IF EXISTS "Allow admin write games" ON game_prices;
+DROP POLICY IF EXISTS "Allow public insert orders" ON orders;
+DROP POLICY IF EXISTS "Allow select own orders" ON orders;
+DROP POLICY IF EXISTS "Allow admin manage inventory" ON accounts_inventory;
+DROP POLICY IF EXISTS "Allow public read reviews" ON reviews;
+DROP POLICY IF EXISTS "Allow public insert reviews" ON reviews;
+DROP POLICY IF EXISTS "Allow admin manage reviews" ON reviews;
+DROP POLICY IF EXISTS "Allow public insert support_tickets" ON support_tickets;
+DROP POLICY IF EXISTS "Allow select own support_tickets" ON support_tickets;
+DROP POLICY IF EXISTS "Allow admin update support_tickets" ON support_tickets;
+DROP POLICY IF EXISTS "Allow public insert ticket_messages" ON ticket_messages;
+DROP POLICY IF EXISTS "Allow public read ticket_messages" ON ticket_messages;
+
+-- game_prices: anyone can read, admin tooling can update through the configured client.
+CREATE POLICY "Allow public read games" ON game_prices FOR SELECT USING (true);
+CREATE POLICY "Allow admin write games" ON game_prices FOR ALL USING (true);
+
+-- orders: public insert and app-level filtering by buyer email.
+CREATE POLICY "Allow public insert orders" ON orders FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow select own orders" ON orders FOR SELECT USING (true);
+
+-- accounts_inventory: retained for admin records, not delivered automatically to buyers.
+CREATE POLICY "Allow admin manage inventory" ON accounts_inventory FOR ALL USING (true);
+
+-- reviews: anyone can read and write.
+CREATE POLICY "Allow public read reviews" ON reviews FOR SELECT USING (true);
+CREATE POLICY "Allow public insert reviews" ON reviews FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow admin manage reviews" ON reviews FOR ALL USING (true);
 
 -- Support Tickets RLS Policies
 CREATE POLICY "Allow public insert support_tickets" ON support_tickets FOR INSERT WITH CHECK (true);

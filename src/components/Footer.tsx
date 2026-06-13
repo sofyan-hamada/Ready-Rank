@@ -19,7 +19,7 @@ export default function Footer() {
               </span>
             </Link>
             <p className="text-xs text-gray-500 max-w-sm">
-              Ready Rank account — fully ready to play. No diamonds, no extras, nothing else required. Get instantly delivered pre-loaded credentials.
+              Ready Rank orders are fulfilled through support tickets so the admin can prepare and deliver each account manually.
             </p>
           </div>
 

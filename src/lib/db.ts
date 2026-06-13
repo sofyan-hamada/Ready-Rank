@@ -57,6 +57,8 @@ export interface SupportTicket {
   messages?: TicketMessage[];
 }
 
+const MANUAL_TICKET_DESCRIPTION = 'Ready Rank order - a support ticket opens after checkout so the admin can prepare and deliver the account manually.';
+
 // Initial Game Config
 export const GAMES_INITIAL: GamePrice[] = [
   { id: 'marvel-rivals', name: 'Marvel Rivals', price_egp: 1500, description: 'Ready Rank account — fully ready to play. No diamonds, no extras, nothing else required.' },
@@ -65,6 +67,10 @@ export const GAMES_INITIAL: GamePrice[] = [
   { id: 'overwatch', name: 'Overwatch', price_egp: 1500, description: 'Ready Rank account — fully ready to play. No diamonds, no extras, nothing else required.' },
   { id: 'league', name: 'League of Legends', price_egp: 1500, description: 'Ready Rank account — fully ready to play. No diamonds, no extras, nothing else required.' },
 ];
+
+GAMES_INITIAL.forEach((game) => {
+  game.description = MANUAL_TICKET_DESCRIPTION;
+});
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -307,46 +313,12 @@ export const dbService = {
   },
 
   async placeOrder(userEmail: string, gameId: string, quantity: number, totalPrice: number): Promise<Order | null> {
-    // 1. Fetch available inventory for this game
-    let availableItems: InventoryItem[] = [];
-
-    if (supabase) {
-      try {
-        const { data, error } = await supabase
-          .from('accounts_inventory')
-          .select('*')
-          .eq('game_id', gameId)
-          .eq('is_sold', false)
-          .order('created_at', { ascending: true })
-          .limit(quantity);
-        if (error) throw error;
-        availableItems = data || [];
-      } catch (err) {
-        console.error('Supabase fetch inventory error, will fallback to local:', err);
-      }
-    } else {
-      initLocalStorage();
-      const localInv = localStorage.getItem(LOCAL_KEYS.INVENTORY);
-      const inventory: InventoryItem[] = localInv ? JSON.parse(localInv) : [];
-      availableItems = inventory
-        .filter(item => item.game_id === gameId && !item.is_sold)
-        .slice(0, quantity);
-    }
-
-    const credentialsDelivered: string[] = availableItems.map(item => item.credentials_text);
-
-    // If order quantity exceeds preloaded accounts, remaining items are just marked as empty string (manual delivery)
-    const emptyCount = quantity - credentialsDelivered.length;
-    for (let i = 0; i < emptyCount; i++) {
-      credentialsDelivered.push('');
-    }
-
     const newOrderObj: Omit<Order, 'id'> & { id?: string } = {
       user_email: userEmail,
       game_id: gameId,
       quantity,
       total_price: totalPrice,
-      credentials_delivered: credentialsDelivered,
+      credentials_delivered: [],
       created_at: new Date().toISOString(),
     };
 
@@ -357,24 +329,10 @@ export const dbService = {
           .insert([newOrderObj])
           .select()
           .single();
-        
+
         if (orderError) throw orderError;
 
-        if (availableItems.length > 0) {
-          const idsToUpdate = availableItems.map(item => item.id);
-          const { error: invError } = await supabase
-            .from('accounts_inventory')
-            .update({
-              is_sold: true,
-              purchased_by_email: userEmail,
-              order_id: orderData.id
-            })
-            .in('id', idsToUpdate);
-          if (invError) console.error('Error updating inventory sold status in Supabase:', invError);
-        }
-
-        // Auto-create support ticket for this order
-        await this.createTicket(orderData.id, userEmail, `Support for Order #${orderData.id.slice(0, 8)}`);
+        await this.createTicket(orderData.id, userEmail, `Order fulfillment #${orderData.id.slice(0, 8)}`);
 
         return orderData;
       } catch (err) {
@@ -395,27 +353,7 @@ export const dbService = {
     orders.unshift(createdOrder);
     localStorage.setItem(LOCAL_KEYS.ORDERS, JSON.stringify(orders));
 
-    // Update inventory item properties in local storage
-    if (availableItems.length > 0) {
-      const allInvLocal = localStorage.getItem(LOCAL_KEYS.INVENTORY);
-      let fullInventory: InventoryItem[] = allInvLocal ? JSON.parse(allInvLocal) : [];
-      const itemIds = new Set(availableItems.map(a => a.id));
-      fullInventory = fullInventory.map(item => {
-        if (itemIds.has(item.id)) {
-          return {
-            ...item,
-            is_sold: true,
-            purchased_by_email: userEmail,
-            order_id: createdOrder.id,
-          };
-        }
-        return item;
-      });
-      localStorage.setItem(LOCAL_KEYS.INVENTORY, JSON.stringify(fullInventory));
-    }
-
-    // Auto-create support ticket
-    await this.createTicket(createdOrder.id, userEmail, `Support for Order #${createdOrder.id.slice(0, 8)}`);
+    await this.createTicket(createdOrder.id, userEmail, `Order fulfillment #${createdOrder.id.slice(0, 8)}`);
 
     // Dispatch order event for live updates
     window.dispatchEvent(new CustomEvent('new-order', { detail: createdOrder }));

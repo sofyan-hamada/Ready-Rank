@@ -533,7 +533,6 @@ export default function AdminPage() {
                     ) : (
                       <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
                         {orders.map((order) => {
-                          const isManualPending = order.credentials_delivered.some(c => c === '');
                           return (
                             <div 
                               key={order.id} 
@@ -545,11 +544,9 @@ export default function AdminPage() {
                                   <span className="text-xs font-extrabold text-white uppercase tracking-wider" id={`admin-order-game-${order.id}`}>
                                     {order.quantity} × {getGameName(order.game_id)}
                                   </span>
-                                  {isManualPending && (
-                                    <span className="text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-amber-950/30 border border-amber-900/50 text-amber-300">
-                                      Manual Delivery Pending
-                                    </span>
-                                  )}
+                                  <span className="text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-amber-950/30 border border-amber-900/50 text-amber-300">
+                                    Ticket Fulfillment
+                                  </span>
                                 </div>
                                 <div className="text-xs text-gray-400">
                                   Customer: <strong className="text-cyan-400 font-bold font-mono" id={`admin-order-buyer-${order.id}`}>{order.user_email}</strong>
@@ -565,7 +562,7 @@ export default function AdminPage() {
                                 </span>
                                 
                                 <span className="text-[10px] text-gray-500 bg-gray-900/50 px-2.5 py-1 rounded border border-gray-900">
-                                  {order.credentials_delivered.filter(c => c !== '').length} / {order.quantity} Creds Assigned
+                                  Follow up in Support
                                 </span>
                               </div>
                             </div>
@@ -657,7 +654,7 @@ export default function AdminPage() {
                     <div className="border-b border-gray-900 pb-3">
                       <h3 className="font-display font-bold text-lg text-white">ACCOUNT CREDENTIALS INVENTORY</h3>
                       <p className="text-[10px] text-gray-500 uppercase tracking-widest font-semibold mt-0.5">
-                        Pre-load credentials to be automatically delivered to buyers on checkout
+                        Keep internal account notes here. Checkout now creates a support ticket instead of auto-delivering credentials.
                       </p>
                     </div>
 
