@@ -5,13 +5,14 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import GameCard from '@/components/GameCard';
 import ReviewSection from '@/components/ReviewSection';
-import { dbService, GamePrice, Order } from '@/lib/db';
+import { dbService, GamePrice, Order, InventoryItem } from '@/lib/db';
 import { authService, UserSession } from '@/lib/auth';
 import { ShieldCheck, Zap, Award, Sparkles, X, ShoppingBag } from 'lucide-react';
 import Link from 'next/link';
 
 export default function Home() {
   const [games, setGames] = useState<GamePrice[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
   
@@ -47,10 +48,14 @@ export default function Home() {
   const loadGames = async () => {
     setLoading(true);
     try {
-      const data = await dbService.getPrices();
-      setGames(data);
+      const [pricesData, invData] = await Promise.all([
+        dbService.getPrices(),
+        dbService.getInventory(),
+      ]);
+      setGames(pricesData);
+      setInventory(invData);
     } catch (err) {
-      console.error('Error loading games:', err);
+      console.error('Error loading games/inventory:', err);
     } finally {
       setLoading(false);
     }
@@ -117,6 +122,10 @@ export default function Home() {
       return;
     }
     await executeOrder(checkoutEmail.trim());
+  };
+
+  const getStockCount = (gameId: string) => {
+    return inventory.filter(item => item.game_id === gameId && !item.is_sold).length;
   };
 
   return (
@@ -222,6 +231,7 @@ export default function Home() {
                 <GameCard 
                   key={game.id} 
                   game={game} 
+                  stockCount={getStockCount(game.id)}
                   onCheckout={handleCheckoutClick} 
                 />
               ))}

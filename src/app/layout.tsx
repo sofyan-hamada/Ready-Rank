@@ -24,6 +24,8 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
+import WhatsAppButton from "@/components/WhatsAppButton";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -36,6 +38,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-[#05050a] text-gray-100 selection:bg-neon-purple selection:text-white">
         {children}
+        <WhatsAppButton />
       </body>
     </html>
   );
