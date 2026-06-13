@@ -44,6 +44,9 @@ export interface TicketMessage {
   ticket_id: string;
   sender: 'buyer' | 'admin';
   body: string;
+  attachment_url?: string | null;
+  attachment_name?: string | null;
+  attachment_type?: string | null;
   created_at: string;
 }
 
@@ -504,11 +507,19 @@ export const dbService = {
     }));
   },
 
-  async sendTicketMessage(ticketId: string, sender: 'buyer' | 'admin', body: string): Promise<TicketMessage | null> {
+  async sendTicketMessage(
+    ticketId: string,
+    sender: 'buyer' | 'admin',
+    body: string,
+    attachment?: { url: string; name: string; type: string } | null
+  ): Promise<TicketMessage | null> {
     const newMsg: Omit<TicketMessage, 'id'> & { id?: string } = {
       ticket_id: ticketId,
       sender,
       body,
+      attachment_url: attachment?.url || null,
+      attachment_name: attachment?.name || null,
+      attachment_type: attachment?.type || null,
       created_at: new Date().toISOString(),
     };
 

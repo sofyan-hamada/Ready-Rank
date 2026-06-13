@@ -77,8 +77,20 @@ CREATE TABLE IF NOT EXISTS ticket_messages (
     ticket_id UUID REFERENCES support_tickets(id) ON DELETE CASCADE,
     sender TEXT NOT NULL CHECK (sender IN ('buyer', 'admin')),
     body TEXT NOT NULL,
+    attachment_url TEXT,
+    attachment_name TEXT,
+    attachment_type TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+ALTER TABLE ticket_messages
+ADD COLUMN IF NOT EXISTS attachment_url TEXT;
+
+ALTER TABLE ticket_messages
+ADD COLUMN IF NOT EXISTS attachment_name TEXT;
+
+ALTER TABLE ticket_messages
+ADD COLUMN IF NOT EXISTS attachment_type TEXT;
 
 -- Enable Row Level Security (RLS) on tables
 ALTER TABLE game_prices ENABLE ROW LEVEL SECURITY;
