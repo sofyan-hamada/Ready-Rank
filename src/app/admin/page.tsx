@@ -833,7 +833,7 @@ export default function AdminPage() {
                       <h3 className="font-display font-bold text-lg text-white">CUSTOMER SUPPORT TICKETS</h3>
                       <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">All Tickets</span>
                     </div>
-                    <TicketPanel userEmail={currentUser.email} isAdmin={true} />
+                    <TicketPanel userEmail={currentUser.email} isAdmin={true} onTicketClosed={loadAllData} />
                   </div>
                 )}
 

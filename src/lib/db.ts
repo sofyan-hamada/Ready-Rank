@@ -232,6 +232,36 @@ export const dbService = {
     return local ? JSON.parse(local) : [];
   },
 
+  async getStockCounts(): Promise<Record<string, number>> {
+    const counts: Record<string, number> = {};
+
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('inventory_stock_counts')
+          .select('game_id, available_count');
+        if (error) throw error;
+
+        (data || []).forEach(item => {
+          counts[item.game_id] = item.available_count || 0;
+        });
+        return counts;
+      } catch (err) {
+        console.error('Supabase getStockCounts error, falling back:', err);
+      }
+    }
+
+    initLocalStorage();
+    const local = localStorage.getItem(LOCAL_KEYS.INVENTORY);
+    const inventory: InventoryItem[] = local ? JSON.parse(local) : [];
+    inventory.forEach(item => {
+      if (!item.is_sold) {
+        counts[item.game_id] = (counts[item.game_id] || 0) + 1;
+      }
+    });
+    return counts;
+  },
+
   async addInventory(gameId: string, credentialsText: string): Promise<boolean> {
     if (supabase) {
       try {
@@ -282,6 +312,62 @@ export const dbService = {
     const filtered = inventory.filter(item => item.id !== id);
     localStorage.setItem(LOCAL_KEYS.INVENTORY, JSON.stringify(filtered));
     return true;
+  },
+
+  async reserveInventoryForOrder(order: Order): Promise<number> {
+    if (supabase) {
+      try {
+        const { data: availableItems, error: fetchError } = await supabase
+          .from('accounts_inventory')
+          .select('id')
+          .eq('game_id', order.game_id)
+          .eq('is_sold', false)
+          .order('created_at', { ascending: true })
+          .limit(order.quantity);
+
+        if (fetchError) throw fetchError;
+        const idsToUpdate = (availableItems || []).map(item => item.id);
+        if (idsToUpdate.length === 0) return 0;
+
+        const { error: updateError } = await supabase
+          .from('accounts_inventory')
+          .update({
+            is_sold: true,
+            purchased_by_email: order.user_email,
+            order_id: order.id,
+          })
+          .in('id', idsToUpdate);
+
+        if (updateError) throw updateError;
+        return idsToUpdate.length;
+      } catch (err) {
+        console.error('Supabase reserveInventoryForOrder error:', err);
+      }
+    }
+
+    initLocalStorage();
+    const local = localStorage.getItem(LOCAL_KEYS.INVENTORY);
+    const inventory: InventoryItem[] = local ? JSON.parse(local) : [];
+    let remainingToReserve = order.quantity;
+    let reservedCount = 0;
+
+    const updated = inventory.map(item => {
+      if (remainingToReserve <= 0 || item.game_id !== order.game_id || item.is_sold) {
+        return item;
+      }
+
+      remainingToReserve -= 1;
+      reservedCount += 1;
+      return {
+        ...item,
+        is_sold: true,
+        purchased_by_email: order.user_email,
+        order_id: order.id,
+      };
+    });
+
+    localStorage.setItem(LOCAL_KEYS.INVENTORY, JSON.stringify(updated));
+    return reservedCount;
   },
 
   // --- Orders ---
@@ -555,11 +641,36 @@ export const dbService = {
   async closeTicket(ticketId: string): Promise<boolean> {
     if (supabase) {
       try {
+        const { data: ticketData, error: ticketError } = await supabase
+          .from('support_tickets')
+          .select('*')
+          .eq('id', ticketId)
+          .single();
+
+        if (ticketError) throw ticketError;
+        if (ticketData?.status === 'closed') return true;
+
+        if (ticketData?.order_id) {
+          const { data: orderData, error: orderError } = await supabase
+            .from('orders')
+            .select('*')
+            .eq('id', ticketData.order_id)
+            .single();
+
+          if (orderError) throw orderError;
+          if (orderData) {
+            await this.reserveInventoryForOrder(orderData as Order);
+          }
+        }
+
         const { error } = await supabase
           .from('support_tickets')
           .update({ status: 'closed' })
           .eq('id', ticketId);
-        if (!error) return true;
+        if (!error) {
+          window.dispatchEvent(new Event('inventory-change'));
+          return true;
+        }
         console.error('Supabase closeTicket error:', error);
       } catch (err) {
         console.error('Supabase closeTicket catch error:', err);
@@ -568,8 +679,20 @@ export const dbService = {
 
     initLocalStorage();
     const tickets: SupportTicket[] = JSON.parse(localStorage.getItem(LOCAL_KEYS.TICKETS) || '[]');
+    const ticket = tickets.find(t => t.id === ticketId);
+    if (ticket?.status === 'closed') return true;
+
+    if (ticket?.order_id) {
+      const orders: Order[] = JSON.parse(localStorage.getItem(LOCAL_KEYS.ORDERS) || '[]');
+      const order = orders.find(o => o.id === ticket.order_id);
+      if (order) {
+        await this.reserveInventoryForOrder(order);
+      }
+    }
+
     const updated = tickets.map(t => t.id === ticketId ? { ...t, status: 'closed' as const } : t);
     localStorage.setItem(LOCAL_KEYS.TICKETS, JSON.stringify(updated));
+    window.dispatchEvent(new Event('inventory-change'));
     return true;
   },
 };

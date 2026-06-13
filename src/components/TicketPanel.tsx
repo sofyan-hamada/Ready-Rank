@@ -9,6 +9,7 @@ interface TicketPanelProps {
   isAdmin: boolean;
   orderId?: string;
   embedded?: boolean;
+  onTicketClosed?: () => void | Promise<void>;
 }
 
 type AttachmentDraft = {
@@ -17,7 +18,7 @@ type AttachmentDraft = {
   type: string;
 };
 
-export default function TicketPanel({ userEmail, isAdmin, orderId, embedded = false }: TicketPanelProps) {
+export default function TicketPanel({ userEmail, isAdmin, orderId, embedded = false, onTicketClosed }: TicketPanelProps) {
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(embedded ? orderId || null : null);
@@ -120,6 +121,7 @@ export default function TicketPanel({ userEmail, isAdmin, orderId, embedded = fa
 
   const handleClose = async (ticketId: string) => {
     await dbService.closeTicket(ticketId);
+    await onTicketClosed?.();
     await loadTickets();
   };
 

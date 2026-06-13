@@ -6,13 +6,14 @@ import Footer from '@/components/Footer';
 import TicketPanel from '@/components/TicketPanel';
 import { dbService, GAMES_INITIAL, Order } from '@/lib/db';
 import { authService, UserSession } from '@/lib/auth';
-import { AlertTriangle, Clock, CreditCard, MessageCircle, RefreshCw, ShoppingBag } from 'lucide-react';
+import { AlertTriangle, Boxes, Clock, CreditCard, MessageCircle, RefreshCw, ShoppingBag } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function OrdersPage() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [stockCounts, setStockCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState('');
   const [authError, setAuthError] = useState('');
@@ -38,15 +39,30 @@ export default function OrdersPage() {
       }
     };
 
+    const handleInventoryChange = () => {
+      const activeUser = authService.getCurrentUser();
+      if (activeUser) {
+        loadOrders(activeUser.email);
+      }
+    };
+
     window.addEventListener('auth-change', handleAuthChange);
-    return () => window.removeEventListener('auth-change', handleAuthChange);
+    window.addEventListener('inventory-change', handleInventoryChange);
+    return () => {
+      window.removeEventListener('auth-change', handleAuthChange);
+      window.removeEventListener('inventory-change', handleInventoryChange);
+    };
   }, []);
 
   const loadOrders = async (buyerEmail: string) => {
     setLoading(true);
     try {
-      const data = await dbService.getOrders(buyerEmail);
-      setOrders(data);
+      const [ordersData, inventoryData] = await Promise.all([
+        dbService.getOrders(buyerEmail),
+        dbService.getStockCounts(),
+      ]);
+      setOrders(ordersData);
+      setStockCounts(inventoryData);
     } catch (err) {
       console.error('Error loading orders:', err);
     } finally {
@@ -80,6 +96,10 @@ export default function OrdersPage() {
 
   const getGameName = (id: string) => {
     return GAMES_INITIAL.find(game => game.id === id)?.name || id;
+  };
+
+  const getStockCount = (gameId: string) => {
+    return stockCounts[gameId] || 0;
   };
 
   return (
@@ -217,6 +237,15 @@ export default function OrdersPage() {
                         </div>
 
                         <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+                          <div className="rounded-lg border border-emerald-900/40 bg-emerald-950/10 px-3 py-2">
+                            <span className="flex items-center gap-1 text-[10px] uppercase tracking-widest text-emerald-500">
+                              <Boxes className="h-3 w-3" />
+                              Stock
+                            </span>
+                            <span className="mt-1 block text-xs font-extrabold text-emerald-300" id={`order-stock-${order.id}`}>
+                              {getStockCount(order.game_id)} available
+                            </span>
+                          </div>
                           <div className="rounded-lg border border-gray-800 bg-[#05050a] px-3 py-2">
                             <span className="flex items-center gap-1 text-[10px] uppercase tracking-widest text-gray-500">
                               <Clock className="h-3 w-3" />

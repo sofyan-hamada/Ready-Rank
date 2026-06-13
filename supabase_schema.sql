@@ -92,6 +92,17 @@ ADD COLUMN IF NOT EXISTS attachment_name TEXT;
 ALTER TABLE ticket_messages
 ADD COLUMN IF NOT EXISTS attachment_type TEXT;
 
+-- Public stock summary without exposing account credentials.
+CREATE OR REPLACE VIEW inventory_stock_counts AS
+SELECT
+    game_id,
+    COUNT(*)::INTEGER AS available_count
+FROM accounts_inventory
+WHERE is_sold = FALSE
+GROUP BY game_id;
+
+GRANT SELECT ON inventory_stock_counts TO anon, authenticated;
+
 -- Enable Row Level Security (RLS) on tables
 ALTER TABLE game_prices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
@@ -105,6 +116,7 @@ DROP POLICY IF EXISTS "Allow public read games" ON game_prices;
 DROP POLICY IF EXISTS "Allow admin write games" ON game_prices;
 DROP POLICY IF EXISTS "Allow public insert orders" ON orders;
 DROP POLICY IF EXISTS "Allow select own orders" ON orders;
+DROP POLICY IF EXISTS "Allow public read inventory" ON accounts_inventory;
 DROP POLICY IF EXISTS "Allow admin manage inventory" ON accounts_inventory;
 DROP POLICY IF EXISTS "Allow public read reviews" ON reviews;
 DROP POLICY IF EXISTS "Allow public insert reviews" ON reviews;
@@ -123,8 +135,11 @@ CREATE POLICY "Allow admin write games" ON game_prices FOR ALL USING (true);
 CREATE POLICY "Allow public insert orders" ON orders FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow select own orders" ON orders FOR SELECT USING (true);
 
--- accounts_inventory: retained for admin records, not delivered automatically to buyers.
-CREATE POLICY "Allow admin manage inventory" ON accounts_inventory FOR ALL USING (true);
+-- accounts_inventory: admin manages records; public users read inventory_stock_counts only.
+CREATE POLICY "Allow admin manage inventory" ON accounts_inventory
+FOR ALL
+USING ((auth.jwt() ->> 'email') = 'admin@readyrank.com')
+WITH CHECK ((auth.jwt() ->> 'email') = 'admin@readyrank.com');
 
 -- reviews: anyone can read and write.
 CREATE POLICY "Allow public read reviews" ON reviews FOR SELECT USING (true);
