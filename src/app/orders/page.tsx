@@ -5,8 +5,9 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { dbService, Order, GAMES_INITIAL } from '@/lib/db';
 import { authService, UserSession } from '@/lib/auth';
-import { ShoppingBag, Key, Clipboard, Check, RefreshCw, AlertTriangle } from 'lucide-react';
+import { ShoppingBag, Key, Clipboard, Check, RefreshCw, AlertTriangle, Headphones } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import TicketPanel from '@/components/TicketPanel';
 
 export default function OrdersPage() {
   const router = useRouter();
@@ -328,6 +329,20 @@ export default function OrdersPage() {
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Support Tickets Section — shown only when logged in */}
+        {currentUser && (
+          <div className="mt-12">
+            <div className="flex items-center gap-3 mb-5">
+              <Headphones className="w-5 h-5 text-violet-400" />
+              <h2 className="font-display font-bold text-lg text-white">Your Support Tickets</h2>
+            </div>
+            <p className="text-xs text-gray-500 mb-4">
+              A ticket is automatically opened for every order. Use it to contact the admin if you need help.
+            </p>
+            <TicketPanel userEmail={currentUser.email} isAdmin={false} />
           </div>
         )}
       </main>

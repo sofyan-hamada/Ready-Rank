@@ -38,6 +38,25 @@ export interface Review {
   approved: boolean;
 }
 
+// ---- Support Ticket System ----
+export interface TicketMessage {
+  id: string;
+  ticket_id: string;
+  sender: 'buyer' | 'admin';
+  body: string;
+  created_at: string;
+}
+
+export interface SupportTicket {
+  id: string;
+  order_id: string;
+  buyer_email: string;
+  subject: string;
+  status: 'open' | 'closed';
+  created_at: string;
+  messages?: TicketMessage[];
+}
+
 // Initial Game Config
 export const GAMES_INITIAL: GamePrice[] = [
   { id: 'marvel-rivals', name: 'Marvel Rivals', price_egp: 1500, description: 'Ready Rank account — fully ready to play. No diamonds, no extras, nothing else required.' },
@@ -65,10 +84,12 @@ console.log(`[Ready Rank DB] Supabase initialized: ${!!supabase}`);
 
 // LOCAL STORAGE FALLBACK IMPLEMENTATION
 const LOCAL_KEYS = {
-  PRICES: 'ready_rank_prices_v1',
+  PRICES: 'ready_rank_prices_v2',      // bumped to v2 to pick up description field
   INVENTORY: 'ready_rank_inventory_v1',
   ORDERS: 'ready_rank_orders_v1',
   REVIEWS: 'ready_rank_reviews_v1',
+  TICKETS: 'ready_rank_tickets_v1',
+  TICKET_MESSAGES: 'ready_rank_ticket_messages_v1',
 };
 
 // Initialize localStorage if empty
@@ -84,8 +105,13 @@ const initLocalStorage = () => {
   if (!localStorage.getItem(LOCAL_KEYS.ORDERS)) {
     localStorage.setItem(LOCAL_KEYS.ORDERS, JSON.stringify([]));
   }
+  if (!localStorage.getItem(LOCAL_KEYS.TICKETS)) {
+    localStorage.setItem(LOCAL_KEYS.TICKETS, JSON.stringify([]));
+  }
+  if (!localStorage.getItem(LOCAL_KEYS.TICKET_MESSAGES)) {
+    localStorage.setItem(LOCAL_KEYS.TICKET_MESSAGES, JSON.stringify([]));
+  }
   if (!localStorage.getItem(LOCAL_KEYS.REVIEWS)) {
-    // Seed some mock review data
     const mockReviews: Review[] = [
       {
         id: '1',
@@ -148,7 +174,19 @@ export const dbService = {
           .from('game_prices')
           .update({ price_egp: price, description: description, updated_at: new Date().toISOString() })
           .eq('id', gameId);
-        if (!error) return true;
+        if (!error) {
+          // Also update localStorage cache so UI refreshes instantly without re-fetch
+          if (typeof window !== 'undefined') {
+            const cached = localStorage.getItem(LOCAL_KEYS.PRICES);
+            if (cached) {
+              const parsed: GamePrice[] = JSON.parse(cached);
+              const updated = parsed.map(p => p.id === gameId ? { ...p, price_egp: price, description } : p);
+              localStorage.setItem(LOCAL_KEYS.PRICES, JSON.stringify(updated));
+            }
+            window.dispatchEvent(new Event('storage'));
+          }
+          return true;
+        }
         console.error('Supabase updatePrice error:', error);
       } catch (err) {
         console.error('Supabase updatePrice catch error:', err);
@@ -160,7 +198,6 @@ export const dbService = {
     const prices = await this.getPrices();
     const updated = prices.map(p => p.id === gameId ? { ...p, price_egp: price, description: description } : p);
     localStorage.setItem(LOCAL_KEYS.PRICES, JSON.stringify(updated));
-    // Dispatch custom event to sync tabs/UI if needed
     window.dispatchEvent(new Event('storage'));
     return true;
   },
@@ -244,7 +281,6 @@ export const dbService = {
       try {
         let query = supabase.from('orders').select('*');
         
-        // If not admin and email provided, filter
         const isAdmin = adminEmail === 'admin@readyrank.com';
         if (!isAdmin && adminEmail) {
           query = query.eq('user_email', adminEmail);
@@ -302,7 +338,7 @@ export const dbService = {
     // If order quantity exceeds preloaded accounts, remaining items are just marked as empty string (manual delivery)
     const emptyCount = quantity - credentialsDelivered.length;
     for (let i = 0; i < emptyCount; i++) {
-      credentialsDelivered.push(''); // placeholder indicating manual delivery required
+      credentialsDelivered.push('');
     }
 
     const newOrderObj: Omit<Order, 'id'> & { id?: string } = {
@@ -316,7 +352,6 @@ export const dbService = {
 
     if (supabase) {
       try {
-        // Insert order
         const { data: orderData, error: orderError } = await supabase
           .from('orders')
           .insert([newOrderObj])
@@ -325,7 +360,6 @@ export const dbService = {
         
         if (orderError) throw orderError;
 
-        // Update assigned inventory items in Supabase
         if (availableItems.length > 0) {
           const idsToUpdate = availableItems.map(item => item.id);
           const { error: invError } = await supabase
@@ -338,6 +372,9 @@ export const dbService = {
             .in('id', idsToUpdate);
           if (invError) console.error('Error updating inventory sold status in Supabase:', invError);
         }
+
+        // Auto-create support ticket for this order
+        await this.createTicket(orderData.id, userEmail, `Support for Order #${orderData.id.slice(0, 8)}`);
 
         return orderData;
       } catch (err) {
@@ -377,6 +414,9 @@ export const dbService = {
       localStorage.setItem(LOCAL_KEYS.INVENTORY, JSON.stringify(fullInventory));
     }
 
+    // Auto-create support ticket
+    await this.createTicket(createdOrder.id, userEmail, `Support for Order #${createdOrder.id.slice(0, 8)}`);
+
     // Dispatch order event for live updates
     window.dispatchEvent(new CustomEvent('new-order', { detail: createdOrder }));
     return createdOrder;
@@ -397,7 +437,6 @@ export const dbService = {
       }
     }
 
-    // LocalStorage Fallback
     initLocalStorage();
     const local = localStorage.getItem(LOCAL_KEYS.REVIEWS);
     return local ? JSON.parse(local) : [];
@@ -416,7 +455,6 @@ export const dbService = {
       }
     }
 
-    // LocalStorage Fallback
     initLocalStorage();
     const reviews = await this.getReviews();
     const newReview: Review = {
@@ -447,12 +485,142 @@ export const dbService = {
       }
     }
 
-    // LocalStorage Fallback
     initLocalStorage();
     const reviews = await this.getReviews();
     const filtered = reviews.filter(r => r.id !== id);
     localStorage.setItem(LOCAL_KEYS.REVIEWS, JSON.stringify(filtered));
     window.dispatchEvent(new Event('storage'));
     return true;
-  }
+  },
+
+  // ---- Support Tickets ----
+
+  async createTicket(orderId: string, buyerEmail: string, subject: string): Promise<SupportTicket | null> {
+    const newTicket: Omit<SupportTicket, 'id'> & { id?: string } = {
+      order_id: orderId,
+      buyer_email: buyerEmail,
+      subject,
+      status: 'open',
+      created_at: new Date().toISOString(),
+    };
+
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('support_tickets')
+          .insert([newTicket])
+          .select()
+          .single();
+        if (!error && data) return data;
+        console.error('Supabase createTicket error:', error);
+      } catch (err) {
+        console.error('Supabase createTicket catch error:', err);
+      }
+    }
+
+    initLocalStorage();
+    const tickets: SupportTicket[] = JSON.parse(localStorage.getItem(LOCAL_KEYS.TICKETS) || '[]');
+    const created: SupportTicket = {
+      ...newTicket,
+      id: Math.random().toString(36).substring(2, 11),
+    };
+    tickets.unshift(created);
+    localStorage.setItem(LOCAL_KEYS.TICKETS, JSON.stringify(tickets));
+    return created;
+  },
+
+  async getTickets(buyerEmail?: string): Promise<SupportTicket[]> {
+    if (supabase) {
+      try {
+        let query = supabase
+          .from('support_tickets')
+          .select('*, messages:ticket_messages(*)');
+
+        const isAdmin = buyerEmail === 'admin@readyrank.com';
+        if (!isAdmin && buyerEmail) {
+          query = query.eq('buyer_email', buyerEmail);
+        }
+
+        const { data, error } = await query.order('created_at', { ascending: false });
+        if (!error && data) return data as SupportTicket[];
+        console.error('Supabase getTickets error:', error);
+      } catch (err) {
+        console.error('Supabase getTickets catch error:', err);
+      }
+    }
+
+    initLocalStorage();
+    const tickets: SupportTicket[] = JSON.parse(localStorage.getItem(LOCAL_KEYS.TICKETS) || '[]');
+    const messages: TicketMessage[] = JSON.parse(localStorage.getItem(LOCAL_KEYS.TICKET_MESSAGES) || '[]');
+
+    const isAdmin = buyerEmail === 'admin@readyrank.com';
+    const filtered = (!isAdmin && buyerEmail)
+      ? tickets.filter(t => t.buyer_email.toLowerCase() === buyerEmail.toLowerCase())
+      : tickets;
+
+    return filtered.map(t => ({
+      ...t,
+      messages: messages.filter(m => m.ticket_id === t.id).sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      ),
+    }));
+  },
+
+  async sendTicketMessage(ticketId: string, sender: 'buyer' | 'admin', body: string): Promise<TicketMessage | null> {
+    const newMsg: Omit<TicketMessage, 'id'> & { id?: string } = {
+      ticket_id: ticketId,
+      sender,
+      body,
+      created_at: new Date().toISOString(),
+    };
+
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('ticket_messages')
+          .insert([newMsg])
+          .select()
+          .single();
+        if (!error && data) {
+          window.dispatchEvent(new CustomEvent('ticket-message', { detail: data }));
+          return data;
+        }
+        console.error('Supabase sendTicketMessage error:', error);
+      } catch (err) {
+        console.error('Supabase sendTicketMessage catch error:', err);
+      }
+    }
+
+    initLocalStorage();
+    const messages: TicketMessage[] = JSON.parse(localStorage.getItem(LOCAL_KEYS.TICKET_MESSAGES) || '[]');
+    const created: TicketMessage = {
+      ...newMsg,
+      id: Math.random().toString(36).substring(2, 11),
+    };
+    messages.push(created);
+    localStorage.setItem(LOCAL_KEYS.TICKET_MESSAGES, JSON.stringify(messages));
+    window.dispatchEvent(new CustomEvent('ticket-message', { detail: created }));
+    return created;
+  },
+
+  async closeTicket(ticketId: string): Promise<boolean> {
+    if (supabase) {
+      try {
+        const { error } = await supabase
+          .from('support_tickets')
+          .update({ status: 'closed' })
+          .eq('id', ticketId);
+        if (!error) return true;
+        console.error('Supabase closeTicket error:', error);
+      } catch (err) {
+        console.error('Supabase closeTicket catch error:', err);
+      }
+    }
+
+    initLocalStorage();
+    const tickets: SupportTicket[] = JSON.parse(localStorage.getItem(LOCAL_KEYS.TICKETS) || '[]');
+    const updated = tickets.map(t => t.id === ticketId ? { ...t, status: 'closed' as const } : t);
+    localStorage.setItem(LOCAL_KEYS.TICKETS, JSON.stringify(updated));
+    return true;
+  },
 };

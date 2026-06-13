@@ -5,16 +5,17 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { dbService, GamePrice, InventoryItem, Order, Review, GAMES_INITIAL } from '@/lib/db';
 import { authService, UserSession } from '@/lib/auth';
+import TicketPanel from '@/components/TicketPanel';
 import { 
   Shield, DollarSign, List, Bell, MessageSquare, PlusCircle, Trash2, 
-  Database, RefreshCw, Key, ShieldAlert, Award, ShoppingCart, UserCheck, X
+  Database, RefreshCw, Key, ShieldAlert, Award, ShoppingCart, UserCheck, X, Headphones
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function AdminPage() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
-  const [activeTab, setActiveTab] = useState<'prices' | 'inventory' | 'orders' | 'reviews'>('orders');
+  const [activeTab, setActiveTab] = useState<'prices' | 'inventory' | 'orders' | 'reviews' | 'support'>('orders');
   
   // Data lists
   const [games, setGames] = useState<GamePrice[]>([]);
@@ -496,6 +497,19 @@ export default function AdminPage() {
                   <MessageSquare className="w-4 h-4" />
                   Reviews Mod
                 </button>
+
+                <button
+                  onClick={() => setActiveTab('support')}
+                  className={`w-full flex items-center gap-2 px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-wider transition-all border ${
+                    activeTab === 'support' 
+                      ? 'bg-violet-950/40 border-violet-800 text-violet-300 shadow-glow-purple' 
+                      : 'bg-transparent border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-950/50'
+                  }`}
+                  id="tab-support"
+                >
+                  <Headphones className="w-4 h-4" />
+                  Support
+                </button>
               </div>
 
               {/* Tab Display Panel */}
@@ -812,6 +826,17 @@ export default function AdminPage() {
                         ))}
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* TAB 5: SUPPORT TICKETS */}
+                {activeTab === 'support' && currentUser && (
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-center border-b border-gray-900 pb-3">
+                      <h3 className="font-display font-bold text-lg text-white">CUSTOMER SUPPORT TICKETS</h3>
+                      <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">All Tickets</span>
+                    </div>
+                    <TicketPanel userEmail={currentUser.email} isAdmin={true} />
                   </div>
                 )}
 

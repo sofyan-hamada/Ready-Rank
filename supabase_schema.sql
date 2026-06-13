@@ -75,3 +75,35 @@ CREATE POLICY "Allow admin manage inventory" ON accounts_inventory FOR ALL USING
 CREATE POLICY "Allow public read reviews" ON reviews FOR SELECT USING (true);
 CREATE POLICY "Allow public insert reviews" ON reviews FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow admin manage reviews" ON reviews FOR ALL USING (true);
+
+-- 5. Create Support Tickets table
+CREATE TABLE IF NOT EXISTS support_tickets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
+    buyer_email TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'closed')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 6. Create Ticket Messages table
+CREATE TABLE IF NOT EXISTS ticket_messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    ticket_id UUID REFERENCES support_tickets(id) ON DELETE CASCADE,
+    sender TEXT NOT NULL CHECK (sender IN ('buyer', 'admin')),
+    body TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable RLS on ticket tables
+ALTER TABLE support_tickets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ticket_messages ENABLE ROW LEVEL SECURITY;
+
+-- Support Tickets RLS Policies
+CREATE POLICY "Allow public insert support_tickets" ON support_tickets FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow select own support_tickets" ON support_tickets FOR SELECT USING (true);
+CREATE POLICY "Allow admin update support_tickets" ON support_tickets FOR UPDATE USING (true);
+
+-- Ticket Messages RLS Policies
+CREATE POLICY "Allow public insert ticket_messages" ON ticket_messages FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public read ticket_messages" ON ticket_messages FOR SELECT USING (true);
