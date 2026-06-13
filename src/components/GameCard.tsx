@@ -2,14 +2,15 @@
 
 import React, { useState } from 'react';
 import { GamePrice } from '@/lib/db';
-import { Plus, Minus, ShoppingCart } from 'lucide-react';
+import { Plus, Minus, ShoppingCart, Boxes } from 'lucide-react';
 
 interface GameCardProps {
   game: GamePrice;
+  stockCount: number;
   onCheckout: (gameId: string, quantity: number, totalPrice: number) => void;
 }
 
-export default function GameCard({ game, onCheckout }: GameCardProps) {
+export default function GameCard({ game, stockCount, onCheckout }: GameCardProps) {
   const [quantity, setQuantity] = useState(1);
   const [imgError, setImgError] = useState(false);
 
@@ -117,6 +118,10 @@ export default function GameCard({ game, onCheckout }: GameCardProps) {
         <h3 className="font-display font-bold text-xl text-white tracking-wide mb-2 group-hover:text-cyan-400 transition-colors duration-300">
           {game.name}
         </h3>
+        <div className="mb-3 inline-flex w-fit items-center gap-1.5 rounded-lg border border-emerald-900/40 bg-emerald-950/20 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-widest text-emerald-300">
+          <Boxes className="h-3.5 w-3.5" />
+          {stockCount} In Stock
+        </div>
         
         <p className="text-xs text-gray-400 leading-relaxed flex-grow mb-4">
           {game.description || 'Ready Rank account — fully ready to play. No diamonds, no extras, nothing else required.'}

@@ -12,6 +12,7 @@ import Link from 'next/link';
 
 export default function Home() {
   const [games, setGames] = useState<GamePrice[]>([]);
+  const [stockCounts, setStockCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
   
@@ -37,18 +38,24 @@ export default function Home() {
     window.addEventListener('auth-change', handleAuthChange);
     // Reload prices when storage changes (e.g., admin edits price in another window)
     window.addEventListener('storage', loadGames);
+    window.addEventListener('inventory-change', loadGames);
 
     return () => {
       window.removeEventListener('auth-change', handleAuthChange);
       window.removeEventListener('storage', loadGames);
+      window.removeEventListener('inventory-change', loadGames);
     };
   }, []);
 
   const loadGames = async () => {
     setLoading(true);
     try {
-      const pricesData = await dbService.getPrices();
+      const [pricesData, stockData] = await Promise.all([
+        dbService.getPrices(),
+        dbService.getStockCounts(),
+      ]);
       setGames(pricesData);
+      setStockCounts(stockData);
     } catch (err) {
       console.error('Error loading games:', err);
     } finally {
@@ -116,6 +123,10 @@ export default function Home() {
       return;
     }
     await executeOrder(checkoutEmail.trim());
+  };
+
+  const getStockCount = (gameId: string) => {
+    return stockCounts[gameId] || 0;
   };
 
   return (
@@ -221,6 +232,7 @@ export default function Home() {
                 <GameCard 
                   key={game.id} 
                   game={game} 
+                  stockCount={getStockCount(game.id)}
                   onCheckout={handleCheckoutClick} 
                 />
               ))}

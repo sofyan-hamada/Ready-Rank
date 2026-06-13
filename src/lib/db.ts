@@ -268,7 +268,10 @@ export const dbService = {
         const { error } = await supabase
           .from('accounts_inventory')
           .insert([{ game_id: gameId, credentials_text: credentialsText }]);
-        if (!error) return true;
+        if (!error) {
+          window.dispatchEvent(new Event('inventory-change'));
+          return true;
+        }
         console.error('Supabase addInventory error:', error);
       } catch (err) {
         console.error('Supabase addInventory catch error:', err);
@@ -289,6 +292,7 @@ export const dbService = {
     };
     inventory.unshift(newItem);
     localStorage.setItem(LOCAL_KEYS.INVENTORY, JSON.stringify(inventory));
+    window.dispatchEvent(new Event('inventory-change'));
     return true;
   },
 
@@ -299,7 +303,10 @@ export const dbService = {
           .from('accounts_inventory')
           .delete()
           .eq('id', id);
-        if (!error) return true;
+        if (!error) {
+          window.dispatchEvent(new Event('inventory-change'));
+          return true;
+        }
         console.error('Supabase deleteInventory error:', error);
       } catch (err) {
         console.error('Supabase deleteInventory catch error:', err);
@@ -311,6 +318,7 @@ export const dbService = {
     const inventory = await this.getInventory();
     const filtered = inventory.filter(item => item.id !== id);
     localStorage.setItem(LOCAL_KEYS.INVENTORY, JSON.stringify(filtered));
+    window.dispatchEvent(new Event('inventory-change'));
     return true;
   },
 
@@ -339,6 +347,7 @@ export const dbService = {
           .in('id', idsToUpdate);
 
         if (updateError) throw updateError;
+        window.dispatchEvent(new Event('inventory-change'));
         return idsToUpdate.length;
       } catch (err) {
         console.error('Supabase reserveInventoryForOrder error:', err);
@@ -367,6 +376,7 @@ export const dbService = {
     });
 
     localStorage.setItem(LOCAL_KEYS.INVENTORY, JSON.stringify(updated));
+    window.dispatchEvent(new Event('inventory-change'));
     return reservedCount;
   },
 
