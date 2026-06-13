@@ -6,16 +6,17 @@ CREATE TABLE IF NOT EXISTS game_prices (
     id TEXT PRIMARY KEY, -- 'marvel-rivals', 'valorant', 'siege', 'overwatch', 'league'
     name TEXT NOT NULL,
     price_egp NUMERIC NOT NULL DEFAULT 1500,
+    description TEXT DEFAULT 'Ready Rank account — fully ready to play. No diamonds, no extras, nothing else required.',
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Seed initial game data
-INSERT INTO game_prices (id, name, price_egp) VALUES
-('marvel-rivals', 'Marvel Rivals', 1500),
-('valorant', 'Valorant', 1500),
-('siege', 'Rainbow Six Siege', 1500),
-('overwatch', 'Overwatch', 1500),
-('league', 'League of Legends', 1500)
+INSERT INTO game_prices (id, name, price_egp, description) VALUES
+('marvel-rivals', 'Marvel Rivals', 1500, 'Ready Rank account — fully ready to play. No diamonds, no extras, nothing else required.'),
+('valorant', 'Valorant', 1500, 'Ready Rank account — fully ready to play. No diamonds, no extras, nothing else required.'),
+('siege', 'Rainbow Six Siege', 1500, 'Ready Rank account — fully ready to play. No diamonds, no extras, nothing else required.'),
+('overwatch', 'Overwatch', 1500, 'Ready Rank account — fully ready to play. No diamonds, no extras, nothing else required.'),
+('league', 'League of Legends', 1500, 'Ready Rank account — fully ready to play. No diamonds, no extras, nothing else required.')
 ON CONFLICT (id) DO NOTHING;
 
 -- 2. Create Orders table

@@ -28,6 +28,7 @@ export default function AdminPage() {
   
   // Forms state
   const [pricesInput, setPricesInput] = useState<{ [key: string]: number }>({});
+  const [descriptionsInput, setDescriptionsInput] = useState<{ [key: string]: string }>({});
   
   const [inventoryGameId, setInventoryGameId] = useState('marvel-rivals');
   const [inventoryCredentials, setInventoryCredentials] = useState('');
@@ -99,10 +100,13 @@ export default function AdminPage() {
       setGames(data);
       // Seed prices inputs
       const initialPrices: { [key: string]: number } = {};
+      const initialDescriptions: { [key: string]: string } = {};
       data.forEach(g => {
         initialPrices[g.id] = g.price_egp;
+        initialDescriptions[g.id] = g.description || '';
       });
       setPricesInput(initialPrices);
+      setDescriptionsInput(initialDescriptions);
     } catch (err) {
       console.error('Error loading games:', err);
     }
@@ -163,11 +167,12 @@ export default function AdminPage() {
 
   const handleUpdatePrice = async (gameId: string) => {
     const newPrice = pricesInput[gameId];
+    const newDescription = descriptionsInput[gameId] || '';
     if (newPrice === undefined || newPrice < 0) return;
 
     setUpdatingPrice(gameId);
     try {
-      const success = await dbService.updatePrice(gameId, newPrice);
+      const success = await dbService.updatePrice(gameId, newPrice, newDescription);
       if (success) {
         await loadGames();
       }
@@ -341,9 +346,7 @@ export default function AdminPage() {
                 />
               </div>
 
-              <div className="text-[10px] text-gray-500 bg-gray-950/30 p-2.5 rounded border border-gray-900 leading-relaxed">
-                ℹ️ Standard credential check is bypassed for testing. Log in using email: <code className="text-violet-400">admin@readyrank.com</code> and any password.
-              </div>
+
 
               <button
                 type="submit"
@@ -563,28 +566,41 @@ export default function AdminPage() {
                 {activeTab === 'prices' && (
                   <div className="space-y-6">
                     <div className="border-b border-gray-900 pb-3">
-                      <h3 className="font-display font-bold text-lg text-white">PRICE SETTINGS (EGP)</h3>
+                      <h3 className="font-display font-bold text-lg text-white">PRICE & DESCRIPTION SETTINGS</h3>
                       <p className="text-[10px] text-gray-500 uppercase tracking-widest font-semibold mt-0.5">
-                        Edit the price in Egyptian Pounds for any game card instantly
+                        Edit the price in Egyptian Pounds and description for any game card instantly
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {games.map((game) => (
                         <div 
                           key={game.id} 
-                          className="bg-gray-950/60 border border-gray-900 rounded-xl p-4 flex items-center justify-between gap-4"
+                          className="bg-gray-950/60 border border-gray-900 rounded-xl p-5 space-y-4 flex flex-col justify-between"
                           id={`price-edit-row-${game.id}`}
                         >
-                          <div className="space-y-0.5">
-                            <span className="text-sm font-bold text-white block">{game.name}</span>
-                            <span className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
-                              Current: {game.price_egp} EGP
-                            </span>
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <span className="text-sm font-bold text-white block">{game.name}</span>
+                              <span className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
+                                Current: {game.price_egp} EGP
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => handleUpdatePrice(game.id)}
+                              disabled={updatingPrice === game.id}
+                              className="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 disabled:opacity-40 text-xs font-bold text-white shadow-md transition-colors"
+                              id={`btn-save-price-${game.id}`}
+                            >
+                              {updatingPrice === game.id ? 'Saving...' : 'Save Changes'}
+                            </button>
                           </div>
 
-                          <div className="flex items-center gap-2">
-                            <div className="relative max-w-[120px]">
+                          <div className="grid grid-cols-1 gap-3">
+                            <div>
+                              <label className="block text-[10px] uppercase font-bold tracking-widest text-gray-400 mb-1">
+                                Price (EGP)
+                              </label>
                               <input
                                 type="number"
                                 required
@@ -593,18 +609,27 @@ export default function AdminPage() {
                                   ...pricesInput,
                                   [game.id]: parseFloat(e.target.value) || 0
                                 })}
-                                className="w-full bg-gray-900 border border-gray-800 rounded-lg py-1.5 px-2.5 text-right text-xs text-white focus:outline-none focus:border-violet-500"
+                                className="w-full bg-gray-900 border border-gray-800 rounded-lg py-1.5 px-3 text-xs text-white focus:outline-none focus:border-violet-500 transition-colors"
                                 id={`input-price-${game.id}`}
                               />
                             </div>
-                            <button
-                              onClick={() => handleUpdatePrice(game.id)}
-                              disabled={updatingPrice === game.id}
-                              className="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-xs font-semibold text-white shadow-md disabled:opacity-40"
-                              id={`btn-save-price-${game.id}`}
-                            >
-                              {updatingPrice === game.id ? 'Saving...' : 'Save'}
-                            </button>
+
+                            <div>
+                              <label className="block text-[10px] uppercase font-bold tracking-widest text-gray-400 mb-1">
+                                Description
+                              </label>
+                              <textarea
+                                required
+                                rows={2}
+                                value={descriptionsInput[game.id] !== undefined ? descriptionsInput[game.id] : ''}
+                                onChange={(e) => setDescriptionsInput({
+                                  ...descriptionsInput,
+                                  [game.id]: e.target.value
+                                })}
+                                className="w-full bg-gray-900 border border-gray-800 rounded-lg py-1.5 px-3 text-xs text-white focus:outline-none focus:border-violet-500 resize-none transition-colors"
+                                id={`input-desc-${game.id}`}
+                              />
+                            </div>
                           </div>
                         </div>
                       ))}

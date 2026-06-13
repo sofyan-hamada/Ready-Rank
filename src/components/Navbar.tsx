@@ -255,11 +255,7 @@ export default function Navbar() {
                 />
               </div>
 
-              <div className="text-xs text-gray-400 space-y-1 bg-gray-950/40 p-2.5 border border-gray-900 rounded-lg">
-                <p>💡 **Quick Login Options:**</p>
-                <p>• Admin: <code className="text-violet-400 bg-violet-950/40 px-1 py-0.5 rounded">admin@readyrank.com</code></p>
-                <p>• Buyer: Enter any other email address</p>
-              </div>
+
 
               <button
                 type="submit"

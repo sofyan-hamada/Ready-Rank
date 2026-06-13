@@ -124,7 +124,7 @@ export default function GameCard({ game, onCheckout }: GameCardProps) {
         </h3>
         
         <p className="text-xs text-gray-400 leading-relaxed flex-grow mb-4">
-          Ready Rank account — fully ready to play. No diamonds, no extras, nothing else required.
+          {game.description || 'Ready Rank account — fully ready to play. No diamonds, no extras, nothing else required.'}
         </p>
 
         {/* Price & Quantity Area */}

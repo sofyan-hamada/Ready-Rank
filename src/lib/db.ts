@@ -5,6 +5,7 @@ export interface GamePrice {
   id: string;
   name: string;
   price_egp: number;
+  description?: string;
   updated_at?: string;
 }
 
@@ -39,11 +40,11 @@ export interface Review {
 
 // Initial Game Config
 export const GAMES_INITIAL: GamePrice[] = [
-  { id: 'marvel-rivals', name: 'Marvel Rivals', price_egp: 1500 },
-  { id: 'valorant', name: 'Valorant', price_egp: 1500 },
-  { id: 'siege', name: 'Rainbow Six Siege', price_egp: 1500 },
-  { id: 'overwatch', name: 'Overwatch', price_egp: 1500 },
-  { id: 'league', name: 'League of Legends', price_egp: 1500 },
+  { id: 'marvel-rivals', name: 'Marvel Rivals', price_egp: 1500, description: 'Ready Rank account — fully ready to play. No diamonds, no extras, nothing else required.' },
+  { id: 'valorant', name: 'Valorant', price_egp: 1500, description: 'Ready Rank account — fully ready to play. No diamonds, no extras, nothing else required.' },
+  { id: 'siege', name: 'Rainbow Six Siege', price_egp: 1500, description: 'Ready Rank account — fully ready to play. No diamonds, no extras, nothing else required.' },
+  { id: 'overwatch', name: 'Overwatch', price_egp: 1500, description: 'Ready Rank account — fully ready to play. No diamonds, no extras, nothing else required.' },
+  { id: 'league', name: 'League of Legends', price_egp: 1500, description: 'Ready Rank account — fully ready to play. No diamonds, no extras, nothing else required.' },
 ];
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -140,12 +141,12 @@ export const dbService = {
     return local ? JSON.parse(local) : GAMES_INITIAL;
   },
 
-  async updatePrice(gameId: string, price: number): Promise<boolean> {
+  async updatePrice(gameId: string, price: number, description: string): Promise<boolean> {
     if (supabase) {
       try {
         const { error } = await supabase
           .from('game_prices')
-          .update({ price_egp: price, updated_at: new Date().toISOString() })
+          .update({ price_egp: price, description: description, updated_at: new Date().toISOString() })
           .eq('id', gameId);
         if (!error) return true;
         console.error('Supabase updatePrice error:', error);
@@ -157,7 +158,7 @@ export const dbService = {
     // LocalStorage Fallback
     initLocalStorage();
     const prices = await this.getPrices();
-    const updated = prices.map(p => p.id === gameId ? { ...p, price_egp: price } : p);
+    const updated = prices.map(p => p.id === gameId ? { ...p, price_egp: price, description: description } : p);
     localStorage.setItem(LOCAL_KEYS.PRICES, JSON.stringify(updated));
     // Dispatch custom event to sync tabs/UI if needed
     window.dispatchEvent(new Event('storage'));
